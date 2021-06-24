@@ -5,6 +5,7 @@ pragma solidity ^0.8.3;
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 
 contract EulerDAO is Initializable, OwnableUpgradeable, ERC721Upgradeable {
     address[] public problems;
@@ -12,6 +13,8 @@ contract EulerDAO is Initializable, OwnableUpgradeable, ERC721Upgradeable {
     bytes32[] public digests;
     address[] public solutions;
     uint256[] public scores;
+    mapping(bytes32 => uint256) timestamps;
+    mapping(bytes32 => address) challengers;
 
     function initialize() public initializer {
         __Context_init_unchained();
@@ -24,7 +27,7 @@ contract EulerDAO is Initializable, OwnableUpgradeable, ERC721Upgradeable {
         problems.push(problem);
     }
 
-    function lock_payload(uint256 target, bytes32 digest) public {
+    function lock_solution(uint256 target, bytes32 digest) public {
         _mint(msg.sender, targets.length);
         targets.push(target);
         digests.push(digest);
@@ -32,16 +35,13 @@ contract EulerDAO is Initializable, OwnableUpgradeable, ERC721Upgradeable {
         scores.push(0);
     }
 
-    function submit_code(uint256 id, bytes calldata code) external payable {
-        bytes32 digest = keccak256(code);
-        require(digest == digests[id]);
-        address addr;
+    function submit_code(uint256 id, bytes memory code) external payable {
+        address addr = Create2Upgradeable.deploy(0, bytes32(targets[id]), code);
+        bytes32 digest;
         assembly {
-            addr := create(0, code.offset, code.length)
-            if iszero(extcodesize(addr)) {
-                revert(0, 0)
-            }
+            digest := extcodehash(addr)
         }
+        require(digest == digests[id]);
         solutions[id] = addr;
     }
 
@@ -51,7 +51,14 @@ contract EulerDAO is Initializable, OwnableUpgradeable, ERC721Upgradeable {
         scores[id] = score;
     }
 
+    function lock_challenge(bytes32 digest) public {
+        require(timestamps[digest] + 10 minutes < block.timestamp);
+        timestamps[digest] = block.timestamp;
+        challengers[digest] = msg.sender;
+    }
+
     function challenge(uint256 id, bytes calldata i) external payable {
+        require(challengers[keccak256(i)] == msg.sender);
         uint256 gas = scores[id];
         require(gas > 0);
         (bool ok, bytes memory o) = solutions[id].staticcall{gas: gas}(i);
@@ -61,6 +68,10 @@ contract EulerDAO is Initializable, OwnableUpgradeable, ERC721Upgradeable {
         scores[id] = 0;
         uint256 money = cost(gas) - cost(0) / 2;
         payable(msg.sender).transfer(money);
+    }
+
+    function get_addr(uint256 tgt, bytes32 h) external view returns (address) {
+        return Create2Upgradeable.computeAddress(bytes32(tgt), h);
     }
 
     function cost(uint256 gl) internal pure returns (uint256) {
