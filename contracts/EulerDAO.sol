@@ -7,18 +7,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 
 contract EulerDAO is Initializable, OwnableUpgradeable, ERC721Upgradeable {
-    struct Payload {
-        uint256 id;
-        uint256 timestamp;
-        uint256 score;
-        address owner;
-        address solution;
-    }
-
     address[] public problems;
-    bytes32[] public winners; //
-    mapping(bytes32 => Payload) public payloads; //
-
     uint256[] public targets;
     bytes32[] public digests;
     address[] public solutions;
@@ -33,7 +22,6 @@ contract EulerDAO is Initializable, OwnableUpgradeable, ERC721Upgradeable {
 
     function register_problem(address problem) external onlyOwner {
         problems.push(problem);
-        winners.push(bytes32(0));
     }
 
     function lock_payload(uint256 target, bytes32 digest) public {
