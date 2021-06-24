@@ -6,6 +6,7 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
+import "hardhat/console.sol";
 
 contract EulerDAO is Initializable, OwnableUpgradeable, ERC721Upgradeable {
     address[] public problems;
@@ -62,9 +63,9 @@ contract EulerDAO is Initializable, OwnableUpgradeable, ERC721Upgradeable {
         uint256 gas = scores[id];
         require(gas > 0);
         (bool ok, bytes memory o) = solutions[id].staticcall{gas: gas}(i);
-        if (ok && I(problems[targets[id]]).check(i, o)) {
-            return;
-        }
+        console.log(111111111111);
+        I(problems[targets[id]]).check(ok, i, o);
+        console.logBool(ok);
         scores[id] = 0;
         uint256 money = cost(gas) - cost(0) / 2;
         payable(msg.sender).transfer(money);
@@ -84,5 +85,9 @@ contract EulerDAO is Initializable, OwnableUpgradeable, ERC721Upgradeable {
 }
 
 interface I {
-    function check(bytes calldata, bytes calldata) external view returns (bool);
+    function check(
+        bool,
+        bytes calldata,
+        bytes calldata
+    ) external view;
 }
